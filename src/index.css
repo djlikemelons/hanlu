@@ -1,0 +1,260 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Farbsystem: Dark Mode ist Standard, :root.hell = heller Modus ---------- */
+:root {
+  --bg: #070b16;
+  --panel: #0d1526;
+  --panel2: #131e38;
+  --line: #1d2c4d;
+  --text: #e8eefc;
+  --muted: #8fa3c8;
+  --akzent: #3b82f6;
+  --akzent2: #1d4ed8;
+  --ok: #34d399;
+  --err: #f87171;
+  --gold: #fbbf24;
+}
+:root.hell {
+  --bg: #f3f6fd;
+  --panel: #ffffff;
+  --panel2: #e9effb;
+  --line: #d3ddf0;
+  --text: #0c1530;
+  --muted: #5a6b8f;
+  --akzent: #1d4ed8;
+  --akzent2: #1e40af;
+  --ok: #059669;
+  --err: #dc2626;
+  --gold: #b45309;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* gut lesbare CJK-Schrift für große Zeichen */
+.zeichen {
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Source Han Sans SC',
+    'Microsoft YaHei', sans-serif;
+  line-height: 1.25;
+}
+
+/* sanfter Glow auf Primär-Buttons, dezente Verläufe auf Panels */
+.glow {
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.45), 0 0 50px rgba(29, 78, 216, 0.18);
+}
+.verlauf-panel {
+  background: linear-gradient(160deg, var(--panel2), var(--panel));
+}
+.hintergrund-glow {
+  background:
+    radial-gradient(60% 40% at 50% -5%, rgba(59, 130, 246, 0.14), transparent 70%),
+    var(--bg);
+}
+
+/* ---------- Erfolgs-/Fehler-Animationen ---------- */
+@keyframes pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  55% { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes schwebt {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-52px); opacity: 0; }
+}
+@keyframes wackeln {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+@keyframes funkeln {
+  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.7) rotate(45deg); opacity: 0; }
+}
+@keyframes pulsRing {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+.anim-pop { animation: pop 0.45s ease-out both; }
+.anim-schwebt { animation: schwebt 0.9s ease-out both; }
+.anim-wackeln { animation: wackeln 0.45s ease-in-out; }
+.anim-funkeln { animation: funkeln 0.7s ease-out both; }
+.anim-puls-ring { animation: pulsRing 1.6s ease-out infinite; }
+
+/* ---------- Kampf- & Erfolgs-Effekte (Boss, Tests) ---------- */
+@keyframes schadenZahl {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  25% { transform: translate(0, -8px) scale(1.3); opacity: 1; }
+  100% { transform: translate(10px, -58px) scale(1); opacity: 0; }
+}
+@keyframes bossTreffer {
+  0%, 100% { transform: translateX(0) scale(1); filter: none; }
+  15% { transform: translateX(-9px) scale(1.12); filter: brightness(1.7) sepia(1) saturate(4) hue-rotate(-25deg); }
+  45% { transform: translateX(8px) scale(1.06); filter: brightness(1.25); }
+  72% { transform: translateX(-4px) scale(1.02); }
+}
+@keyframes erfolgBlitz {
+  0% { opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+@keyframes richtigGlow {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+  30% { box-shadow: 0 0 26px 3px rgba(52, 211, 153, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+@keyframes konfetti {
+  0% { transform: translateY(-12px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(150px) rotate(340deg); opacity: 0; }
+}
+@keyframes siegPop {
+  0% { transform: scale(0) rotate(-18deg); opacity: 0; }
+  60% { transform: scale(1.28) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.anim-schaden { animation: schadenZahl 0.85s ease-out both; }
+.anim-boss-treffer { animation: bossTreffer 0.6s ease-out; }
+.anim-erfolg-blitz { animation: erfolgBlitz 0.7s ease-out both; }
+.anim-richtig-glow { animation: richtigGlow 0.7s ease-out; }
+.anim-konfetti { animation: konfetti 1.5s ease-in forwards; }
+.anim-sieg-pop { animation: siegPop 0.6s ease-out both; }
+
+/* ---------- 3D-Boss-Arena (CSS-3D, kein WebGL nötig) ---------- */
+/* ERWEITERUNG: Für „echtes" 3D mit Modellen/Licht könnte hier Three.js
+   (npm i three) eingebunden werden – die Arena-Komponente in Boss.jsx
+   ist dafür der Austauschpunkt. */
+.arena-3d { perspective: 900px; }
+.arena-boden {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.25) 1px, transparent 1px);
+  background-size: 36px 36px;
+  transform: rotateX(62deg);
+  mask-image: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+}
+@keyframes boss3dIdle {
+  0%, 100% { transform: translateY(0) rotateY(-14deg) scale(1); }
+  50% { transform: translateY(-16px) rotateY(14deg) scale(1.03); }
+}
+@keyframes boss3dHit {
+  0% { transform: translateZ(0) rotateX(0) rotateY(0); }
+  30% { transform: translateZ(-150px) rotateX(-42deg) rotateY(35deg) scale(0.92); filter: brightness(2.2) saturate(3) hue-rotate(-30deg); }
+  65% { transform: translateZ(-40px) rotateX(10deg) rotateY(-12deg); filter: brightness(1.3); }
+  100% { transform: translateZ(0) rotateX(0) rotateY(0); }
+}
+@keyframes boss3dLunge {
+  0% { transform: translateZ(0) scale(1) rotateZ(0); }
+  40% { transform: translateZ(190px) scale(1.55) rotateZ(-8deg); }
+  60% { transform: translateZ(170px) scale(1.5) rotateZ(6deg); }
+  100% { transform: translateZ(0) scale(1) rotateZ(0); }
+}
+@keyframes boss3dTod {
+  0% { transform: rotateX(0) translateY(0) scale(1); opacity: 1; }
+  35% { transform: rotateX(-20deg) translateY(-22px) scale(1.12); filter: brightness(2.5); }
+  100% { transform: rotateX(88deg) translateY(70px) scale(0.5); opacity: 0; filter: grayscale(1) brightness(0.6); }
+}
+@keyframes arenaShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-7px, 4px); }
+  40% { transform: translate(7px, -3px); }
+  60% { transform: translate(-5px, -4px); }
+  80% { transform: translate(4px, 3px); }
+}
+@keyframes schattenPuls {
+  0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.45; }
+  50% { transform: translateX(-50%) scaleX(0.78); opacity: 0.3; }
+}
+.anim-boss3d-idle { animation: boss3dIdle 3.2s ease-in-out infinite; transform-style: preserve-3d; }
+.anim-boss3d-hit { animation: boss3dHit 0.65s ease-out both; transform-style: preserve-3d; }
+.anim-boss3d-lunge { animation: boss3dLunge 0.7s ease-in-out both; transform-style: preserve-3d; }
+.anim-boss3d-tod { animation: boss3dTod 1s ease-in both; transform-style: preserve-3d; }
+.anim-arena-shake { animation: arenaShake 0.5s ease-in-out; }
+.anim-schatten { animation: schattenPuls 3.2s ease-in-out infinite; }
+
+/* ---------- Boss-Figur: Körperteile (SVG, siehe BossFigur.jsx) ---------- */
+@keyframes bossAtmen {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.03, 0.97); }
+}
+@keyframes bossArmIdle {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(9deg); }
+}
+@keyframes bossArmIdleR {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-9deg); }
+}
+@keyframes bossArmHoch {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(-70deg); }
+  100% { transform: rotate(-48deg); }
+}
+@keyframes bossArmHochR {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(70deg); }
+  100% { transform: rotate(48deg); }
+}
+@keyframes bossArmAttacke {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(-44deg); }
+}
+@keyframes bossArmAttackeR {
+  0%, 100% { transform: rotate(30deg); }
+  50% { transform: rotate(44deg); }
+}
+@keyframes bossSchwanz {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(14deg); }
+}
+@keyframes bossPupillen {
+  0%, 42%, 100% { transform: translate(0, 0); }
+  48%, 62% { transform: translate(-2.5px, 1px); }
+  68%, 90% { transform: translate(2px, -0.5px); }
+}
+.boss-atmen { animation: bossAtmen 2.6s ease-in-out infinite; }
+.boss-arm-idle-l { animation: bossArmIdle 2.6s ease-in-out infinite; }
+.boss-arm-idle-r { animation: bossArmIdleR 2.6s ease-in-out infinite 0.3s; }
+.boss-arm-hoch-l { animation: bossArmHoch 0.6s ease-out both; }
+.boss-arm-hoch-r { animation: bossArmHochR 0.6s ease-out both; }
+.boss-arm-attacke-l { animation: bossArmAttacke 0.35s ease-in-out infinite; }
+.boss-arm-attacke-r { animation: bossArmAttackeR 0.35s ease-in-out infinite; }
+.boss-schwanz { animation: bossSchwanz 3s ease-in-out infinite; }
+.boss-pupillen { animation: bossPupillen 5.5s ease-in-out infinite; }
+
+/* ---------- Memory-Kartenflip (3D) ---------- */
+.flip-aussen { perspective: 600px; }
+.flip-innen { transform-style: preserve-3d; transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
+.flip-innen.offen { transform: rotateY(180deg); }
+.flip-seite { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-rueck { transform: rotateY(180deg); }
+
+/* ---------- Mochi & Szenen ---------- */
+@keyframes mochiBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(-2deg); }
+}
+.anim-mochi-bob { animation: mochiBob 2.6s ease-in-out infinite; }
+@keyframes szeneSchwebt {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.anim-szene-schwebt { animation: szeneSchwebt 3.4s ease-in-out infinite; }
+
+/* dezente Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 8px; }

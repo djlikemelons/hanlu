@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hanlu-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PATH=${env:HOME}/.local/node/bin:${env:PATH}", "npm", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}
