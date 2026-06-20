@@ -15,6 +15,12 @@
   --ok: #34d399;
   --err: #f87171;
   --gold: #fbbf24;
+  /* Pinyin-Tonfarben: 1 rot · 2 gelb · 3 grün · 4 violett · neutral grau */
+  --ton1: #f87171;
+  --ton2: #f5b53d;
+  --ton3: #34d399;
+  --ton4: #a78bfa;
+  --ton0: #8fa3c8;
 }
 :root.hell {
   --bg: #f3f6fd;
@@ -28,6 +34,11 @@
   --ok: #059669;
   --err: #dc2626;
   --gold: #b45309;
+  --ton1: #dc2626;
+  --ton2: #b45309;
+  --ton3: #047857;
+  --ton4: #7c3aed;
+  --ton0: #5a6b8f;
 }
 
 html,
@@ -132,6 +143,15 @@ body {
 .anim-richtig-glow { animation: richtigGlow 0.7s ease-out; }
 .anim-konfetti { animation: konfetti 1.5s ease-in forwards; }
 .anim-sieg-pop { animation: siegPop 0.6s ease-out both; }
+
+/* ---------- Meilenstein-Siegel (印章): Stempel-Effekt ---------- */
+@keyframes stempel {
+  0% { transform: scale(2.6) rotate(-16deg); opacity: 0; }
+  45% { transform: scale(0.92) rotate(-8deg); opacity: 1; }
+  60% { transform: scale(1.06) rotate(-8deg); }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+.anim-stempel { animation: stempel 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 
 /* ---------- 3D-Boss-Arena (CSS-3D, kein WebGL nötig) ---------- */
 /* ERWEITERUNG: Für „echtes" 3D mit Modellen/Licht könnte hier Three.js

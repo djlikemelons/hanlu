@@ -5,6 +5,7 @@ import React from 'react'
 import { useStore, kartenFuerPool, faelligeKarten, neueKartenVon, neueErlaubtHeute } from '../store.jsx'
 import { Panel, Knopf } from '../components/UI.jsx'
 import { MochiWidget } from '../components/Mochi.jsx'
+import { WortDesTages } from '../components/WortDesTages.jsx'
 import { heuteISO } from '../lib/srs.js'
 import { SPIELMODI } from '../modes/index.js'
 
@@ -50,6 +51,9 @@ export default function Home() {
           </button>
         )}
       </Panel>
+
+      {/* Wort des Tages mit Kultur-/Chengyu-Notiz */}
+      <WortDesTages />
 
       {/* Lernblöcke: gezielt nur ein Thema lernen */}
       <section>
@@ -100,14 +104,27 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Test & Fortschritt */}
-      <div className="grid grid-cols-2 gap-3">
-        <Knopf variante="sekundaer" onClick={() => geheZu('test')} className="w-full">
-          📝 Test-Modus
+      {/* Werkzeuge: Wörterbuch, Schreiben, eigener Text, Test, Fortschritt */}
+      <div className="space-y-3">
+        <Knopf variante="sekundaer" onClick={() => geheZu('woerterbuch')} className="w-full">
+          📖 词典 Wörterbuch
         </Knopf>
-        <Knopf variante="sekundaer" onClick={() => geheZu('dashboard')} className="w-full">
-          📊 Fortschritt
-        </Knopf>
+        <div className="grid grid-cols-2 gap-3">
+          <Knopf variante="sekundaer" onClick={() => geheZu('schreiben')} className="w-full">
+            ✍️ Schreiben
+          </Knopf>
+          <Knopf variante="sekundaer" onClick={() => geheZu('eigentext')} className="w-full">
+            📄 Eigener Text
+          </Knopf>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Knopf variante="sekundaer" onClick={() => geheZu('test')} className="w-full">
+            📝 Test-Modus
+          </Knopf>
+          <Knopf variante="sekundaer" onClick={() => geheZu('dashboard')} className="w-full">
+            📊 Fortschritt
+          </Knopf>
+        </div>
       </div>
     </div>
   )

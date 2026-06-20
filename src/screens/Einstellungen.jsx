@@ -4,6 +4,7 @@
 import React, { useRef } from 'react'
 import { useStore } from '../store.jsx'
 import { RESERVOIR } from '../data/reservoir.js'
+import { sprich, ttsVerfuegbar } from '../lib/sprache.js'
 import { Panel, Knopf, BackBar, Chip } from '../components/UI.jsx'
 
 export default function Einstellungen() {
@@ -64,6 +65,70 @@ export default function Einstellungen() {
         <p className="text-xs text-matt mt-2">Mit „Mehr Karten heute" kannst du das Limit in jeder Session spontan erhöhen.</p>
       </Panel>
 
+      {/* Karteikarten: Bewertungsmodus, Aussprache-Tempo, Sound-Effekte */}
+      <Panel className="space-y-4">
+        <div>
+          <h3 className="font-bold text-sm mb-1">Bewertung auf Karten</h3>
+          <p className="text-xs text-matt mb-3">Wie du nach dem Aufdecken bewertest.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ['drei', '3 Knöpfe', 'Standard'],
+              ['anki', '4 Knöpfe', 'Anki (+ Schwer)'],
+              ['wisch', 'Wischen', 'Gewusst / nicht'],
+            ].map(([id, label, sub]) => (
+              <button
+                key={id}
+                onClick={() => einstellungenSetzen({ bewertungsModus: id })}
+                className={`rounded-2xl border p-3 text-center transition active:scale-[0.98] ${
+                  (e.bewertungsModus || 'drei') === id ? 'bg-akzent/20 border-akzent text-tinte' : 'bg-panel border-linie text-matt hover:border-akzent/60'
+                }`}
+              >
+                <div className="font-semibold text-sm">{label}</div>
+                <div className="text-[11px] mt-0.5">{sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-linie pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm">Aussprache (Audio 🔊)</h3>
+            {ttsVerfuegbar() && (
+              <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => sprich('你好，欢迎学习中文', e.ttsTempo ?? 0.8)}>
+                Test ▶
+              </Knopf>
+            )}
+          </div>
+          {ttsVerfuegbar() ? (
+            <>
+              <p className="text-xs text-matt mb-2">Sprechtempo</p>
+              <div className="flex gap-2">
+                {[['Langsam', 0.6], ['Normal', 0.8], ['Schnell', 1.0]].map(([label, v]) => (
+                  <Chip key={v} aktiv={(e.ttsTempo ?? 0.8) === v} onClick={() => einstellungenSetzen({ ttsTempo: v })}>
+                    {label}
+                  </Chip>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-gold">
+              ⚠️ Dieser Browser hat keine chinesische Stimme installiert – die Aussprache ist hier nicht verfügbar.
+              Auf iPhone/Mac & Android sind zh-CN-Stimmen meist vorhanden.
+            </p>
+          )}
+        </div>
+
+        <div className="border-t border-linie pt-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-sm">Sound-Effekte</h3>
+            <p className="text-xs text-matt mt-1">Dezente Töne bei richtig/falsch.</p>
+          </div>
+          <Knopf variante="sekundaer" onClick={() => einstellungenSetzen({ sound: !(e.sound !== false) })}>
+            {e.sound !== false ? 'An' : 'Aus'}
+          </Knopf>
+        </div>
+      </Panel>
+
       {/* Selbstfüllendes Vokabelsystem: zieht automatisch aus dem Reservoir */}
       <Panel className="flex items-center justify-between gap-3">
         <div>
@@ -113,6 +178,27 @@ export default function Einstellungen() {
             ☀️ Hell
           </button>
         </div>
+      </Panel>
+
+      {/* KI-Tutor: eigener Anthropic-API-Key, nur lokal gespeichert */}
+      <Panel className="space-y-2">
+        <h3 className="font-bold text-sm">KI-Tutor 🤖 (optional)</h3>
+        <p className="text-xs text-matt">
+          Für echtes Feedback im Schreib-Modus. Dein Anthropic-API-Key wird <b>nur lokal</b> in diesem
+          Browser gespeichert und ausschließlich für die Satzprüfung verwendet (Modell claude-sonnet-4-6).
+          Ohne Key funktioniert der Schreib-Modus mit einfachen Checks + Musterbeispiel.
+        </p>
+        <input
+          type="password"
+          value={e.apiKey || ''}
+          onChange={(ev) => einstellungenSetzen({ apiKey: ev.target.value })}
+          placeholder="sk-ant-… (optional)"
+          className="w-full rounded-2xl border border-linie bg-panel2 px-4 py-3 text-sm min-h-[48px]"
+          autoComplete="off"
+        />
+        <p className="text-[11px] text-matt">
+          Key erstellen unter console.anthropic.com. {e.apiKey ? '✓ Key hinterlegt.' : 'Kein Key hinterlegt.'}
+        </p>
       </Panel>
 
       <Panel className="space-y-3">

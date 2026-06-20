@@ -3,6 +3,12 @@
 
 import React from 'react'
 
+// Pinyin klassisch einfarbig im Akzentton darstellen (keine Tonfarben).
+// Zentrale Komponente: überall einsetzbar, wo Pinyin erscheint.
+export function Pinyin({ text, className = '' }) {
+  return <span className={`text-akzent ${className}`}>{text}</span>
+}
+
 export function Knopf({ children, variante = 'primaer', className = '', ...p }) {
   const stile = {
     primaer: 'bg-akzent text-white glow hover:brightness-110',

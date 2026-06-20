@@ -10,6 +10,10 @@ import TestModus from './screens/TestModus.jsx'
 import Einstellungen from './screens/Einstellungen.jsx'
 import Themen from './screens/Themen.jsx'
 import Einstufung from './screens/Einstufung.jsx'
+import Woerterbuch from './screens/Woerterbuch.jsx'
+import Schreiben from './screens/Schreiben.jsx'
+import Eigentext from './screens/Eigentext.jsx'
+import { SiegelOverlay } from './components/Siegel.jsx'
 import { SPIELMODI } from './modes/index.js'
 
 function Kopfzeile() {
@@ -73,6 +77,9 @@ export default function App() {
       case 'dashboard': inhalt = <Dashboard />; break
       case 'test': inhalt = <TestModus />; break
       case 'themen': inhalt = <Themen />; break
+      case 'woerterbuch': inhalt = <Woerterbuch />; break
+      case 'schreiben': inhalt = <Schreiben />; break
+      case 'eigentext': inhalt = <Eigentext />; break
       case 'einstellungen': inhalt = <Einstellungen />; break
       case 'spiel': {
         const modus = SPIELMODI.find((m) => m.id === ansicht.params.id)
@@ -89,6 +96,7 @@ export default function App() {
         {!erzwungeneEinstufung && <Kopfzeile />}
         {inhalt}
       </div>
+      <SiegelOverlay />
     </div>
   )
 }

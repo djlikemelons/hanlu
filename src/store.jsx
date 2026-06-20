@@ -5,7 +5,8 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { STARTER_DECK } from './data/starterDeck.js'
 import { RESERVOIR } from './data/reservoir.js'
 import { STANDARD_THEMEN, STANDARD_POOL } from './data/themen.js'
-import { heuteISO, gesternISO, tageAb, bewerte } from './lib/srs.js'
+import { heuteISO, gesternISO, tageAb, tageDazwischen, bewerte } from './lib/srs.js'
+import { verdienteSiegelIds } from './lib/siegel.js'
 import { laden, speichern, leeren, alsDateiExportieren } from './lib/storage.js'
 import { eindeutigeId } from './lib/utils.js'
 
@@ -37,10 +38,18 @@ export function frischerZustand() {
       richtung: 'zh-de', // 'zh-de' = 汉→Deutsch, 'de-zh' = Deutsch→汉
       mischen: true,
       autoNachschub: true, // Vokabel-Reservoir füllt das Deck automatisch auf
+      bewertungsModus: 'drei', // 'drei' = 3 Knöpfe · 'anki' = 4 Knöpfe · 'wisch' = Wischen
+      ttsTempo: 0.8, // Sprechtempo der Aussprache (Web Speech API)
+      sound: true, // dezente Sound-Effekte richtig/falsch
+      apiKey: '', // optionaler Anthropic-API-Key für den KI-Tutor (nur lokal gespeichert)
     },
     stats: {
       streak: 0,
       letzterLerntag: null,
+      freezes: 2, // Streak-Schutz: verpasste Tage abfedern (max 3)
+      freezeVerbraucht: false,
+      siegel: [], // verdiente Meilenstein-Siegel (IDs)
+      neuesSiegel: null, // zuletzt frisch verdientes Siegel (für die Animation)
       xp: 0,
       verlauf: {}, // datum → { wdh, neu }
       heute: { datum: heuteISO(), neu: 0, wdh: 0, richtig: 0, falsch: 0, extraNeue: 0 },
@@ -173,19 +182,45 @@ export function StoreProvider({ children }) {
           const warNeu = alt.wiederholungen === 0
           const richtig = wertung !== 'nochmal'
 
-          let { streak, letzterLerntag } = s.stats
+          // Streak mit Schutz (Freeze): ein einzelner verpasster Tag killt den
+          // Streak nicht – stattdessen wird ein Freeze verbraucht. Alle 7 Tage
+          // gibt es einen Freeze dazu (max. 3).
+          let { streak, letzterLerntag, freezes = 2 } = s.stats
+          let freezeVerbraucht = false
           if (letzterLerntag !== heute) {
-            streak = letzterLerntag === gesternISO() ? streak + 1 : 1
+            const luecke = letzterLerntag ? tageDazwischen(letzterLerntag, heute) : 1
+            if (luecke <= 1) {
+              streak = streak + 1
+            } else if (luecke === 2 && freezes > 0) {
+              streak = streak + 1
+              freezes -= 1
+              freezeVerbraucht = true
+            } else {
+              streak = 1
+            }
+            if (streak % 7 === 0 && freezes < 3) freezes += 1
             letzterLerntag = heute
           }
           const v = s.stats.verlauf[heute] || { wdh: 0, neu: 0 }
+
+          // Meilenstein-Siegel: nach der Bewertung neu verdiente Siegel ermitteln
+          const neueKarten = s.karten.map((k) => (k.id === id ? bewerte(k, wertung) : k))
+          const begonnen = neueKarten.filter((k) => k.wiederholungen > 0).length
+          const verdient = verdienteSiegelIds(begonnen, streak)
+          const alteSiegel = s.stats.siegel || []
+          const frisch = verdient.filter((x) => !alteSiegel.includes(x))
+
           return {
             ...s,
-            karten: s.karten.map((k) => (k.id === id ? bewerte(k, wertung) : k)),
+            karten: neueKarten,
             stats: {
               ...s.stats,
               streak,
               letzterLerntag,
+              freezes,
+              freezeVerbraucht,
+              siegel: frisch.length ? Array.from(new Set([...alteSiegel, ...verdient])) : alteSiegel,
+              neuesSiegel: frisch[0] || s.stats.neuesSiegel || null,
               xp: s.stats.xp + (wertung === 'nochmal' ? 0 : wertung === 'schwer' ? 1 : 2),
               verlauf: { ...s.stats.verlauf, [heute]: { wdh: v.wdh + 1, neu: v.neu + (warNeu ? 1 : 0) } },
               heute: {
@@ -198,6 +233,20 @@ export function StoreProvider({ children }) {
             },
           }
         }),
+
+      // „Rückgängig": letzte Bewertung zurücknehmen. Der Aufrufer (Lernen)
+      // hält den Karten- und Stats-Zustand VOR der Bewertung und spielt ihn
+      // hier zurück. Bewusst ohne patch(), damit reservoirAuffuellen/tagesReset
+      // den wiederhergestellten Stand nicht überschreiben.
+      bewertungZuruecknehmen: (karteVorher, statsVorher) =>
+        setState((s) => ({
+          ...s,
+          karten: s.karten.map((k) => (k.id === karteVorher.id ? karteVorher : k)),
+          stats: statsVorher,
+        })),
+
+      // Neu verdientes Siegel als „gesehen" markieren (schließt die Animation)
+      siegelGesehen: () => patch((s) => ({ ...s, stats: { ...s.stats, neuesSiegel: null } })),
 
       mehrKartenHeute: (n = 5) =>
         patch((s) => ({ ...s, stats: { ...s.stats, heute: { ...s.stats.heute, extraNeue: s.stats.heute.extraNeue + n } } })),

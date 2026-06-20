@@ -1,27 +1,58 @@
 // Tägliche Lern-Session (SRS): fällige Wiederholungen + neue Karten.
-// Karten-Anzeige: Zeichen groß → „Pinyin zeigen" → „Antwort zeigen" → Bewertung
-// im Anki-Stil (nochmal / schwer / gut / leicht).
+// Karte: Zeichen groß (+ Audio) → „Pinyin zeigen" → „Antwort zeigen" → Bewertung.
+// Bewertungsmodus umschaltbar: 3 Knöpfe (Standard) · 4 Knöpfe (Anki) · Wischen.
+// Zusätzlich: Tastatur (Leertaste = aufdecken, danach Ziffern), Wisch-Gesten,
+// „Rückgängig" für die letzte Bewertung, Pinyin in Tonfarben, Sound-Effekte.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useStore, kartenFuerPool, faelligeKarten, neueKartenVon, neueErlaubtHeute } from '../store.jsx'
 import { intervallVorschau } from '../lib/srs.js'
 import { mischen } from '../lib/utils.js'
-import { Knopf, Panel, BackBar, Fortschritt } from '../components/UI.jsx'
+import { sprich, ttsVerfuegbar } from '../lib/sprache.js'
+import { klingeRichtig, klingeFalsch } from '../lib/klang.js'
+import { Knopf, Panel, BackBar, Fortschritt, Pinyin } from '../components/UI.jsx'
+import { TippText } from '../components/TippText.jsx'
+
+const KNOPF_FARBE = {
+  nochmal: 'border-err/50 text-err',
+  schwer: 'border-gold/50 text-gold',
+  gut: 'border-ok/50 text-ok',
+  leicht: 'border-akzent/50 text-akzent',
+}
+const KNOPF_LABEL = { nochmal: 'Nochmal', schwer: 'Schwer', gut: 'Gut', leicht: 'Leicht' }
+// Welche Knöpfe je Modus – die Ziffern 1..n auf der Tastatur folgen dieser Reihenfolge.
+const MODUS_KNOEPFE = { drei: ['nochmal', 'gut', 'leicht'], anki: ['nochmal', 'schwer', 'gut', 'leicht'], wisch: ['nochmal', 'gut'] }
+
+// 🔊-Knopf für die Aussprache (Web Speech API, zh-CN, kostenlos & offline)
+function AudioKnopf({ text, tempo, klein = false }) {
+  if (!ttsVerfuegbar()) return null
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); sprich(text, tempo) }}
+      aria-label="Aussprache abspielen"
+      className={`rounded-full border border-linie bg-panel2 hover:border-akzent/60 transition active:scale-90 flex items-center justify-center ${
+        klein ? 'w-9 h-9 text-sm' : 'w-12 h-12 text-lg'
+      }`}
+    >
+      🔊
+    </button>
+  )
+}
 
 export default function Lernen() {
   const store = useStore()
-  const { state, ansicht, geheZu, bewerteKarte, mehrKartenHeute, sessionFertig, einstellungenSetzen } = store
+  const { state, ansicht, geheZu, bewerteKarte, mehrKartenHeute, sessionFertig, einstellungenSetzen, bewertungZuruecknehmen } = store
   const themaId = ansicht.params.thema || null
   const thema = themaId ? state.themen.find((t) => t.id === themaId) : null
-  // 'normal' = fällige + neue Karten (SRS);
-  // 'wiederholen' = freie Wiederholung aller schon gelernten Karten on demand.
   const modus = ansicht.params.modus || 'normal'
 
-  // Session-Warteschlange einmalig beim Start aufbauen (nur Karten-IDs).
+  const modusBewertung = state.einstellungen.bewertungsModus || 'drei'
+  const tempo = state.einstellungen.ttsTempo ?? 0.8
+  const soundAn = state.einstellungen.sound !== false
+
   const [queue, setQueue] = useState(() => {
     const pool = kartenFuerPool(state, themaId)
     if (modus === 'wiederholen') {
-      // Alle bereits gelernten Karten, unabhängig vom Fälligkeitsdatum.
       return mischen(pool.filter((k) => k.wiederholungen > 0).map((k) => k.id))
     }
     const faellig = faelligeKarten(pool).map((k) => k.id)
@@ -34,6 +65,9 @@ export default function Lernen() {
   const [zeigePinyin, setZeigePinyin] = useState(false)
   const [optionenOffen, setOptionenOffen] = useState(false)
   const [bewertet, setBewertet] = useState(0)
+  const [historie, setHistorie] = useState([]) // Snapshots für „Rückgängig"
+  const [wischX, setWischX] = useState(0) // aktuelle Wisch-Verschiebung (px)
+  const touch = useRef({ x: 0, aktiv: false })
   const gemeldet = useRef(false)
 
   const karte = state.karten.find((k) => k.id === queue[0])
@@ -45,8 +79,6 @@ export default function Lernen() {
         ? `${thema.emoji} ${thema.name}`
         : 'Tägliches Lernen'
 
-  // Session-Ende einmalig melden (zählt für die China-Reisekarte) – als
-  // Effekt, nicht während des Renderns.
   useEffect(() => {
     if (!karte && bewertet > 0 && !gemeldet.current) {
       gemeldet.current = true
@@ -55,14 +87,20 @@ export default function Lernen() {
   }, [karte, bewertet])
 
   const bewerten = (wertung) => {
+    if (!karte) return
+    // Snapshot VOR der Bewertung sichern (für Rückgängig)
+    setHistorie((h) =>
+      [...h, { karte: { ...karte }, stats: JSON.parse(JSON.stringify(state.stats)), queue: [...queue], bewertet }].slice(-20)
+    )
+    if (soundAn) (wertung === 'nochmal' ? klingeFalsch : klingeRichtig)()
     bewerteKarte(karte.id, wertung)
     setBewertet((n) => n + 1)
     setZeigeAntwort(false)
     setZeigePinyin(false)
+    setWischX(0)
     setQueue((q) => {
       const [aktuelle, ...rest] = q
       if (wertung === 'nochmal') {
-        // „nochmal" → Karte rückt ein paar Positionen nach hinten
         const pos = Math.min(3, rest.length)
         return [...rest.slice(0, pos), aktuelle, ...rest.slice(pos)]
       }
@@ -70,17 +108,59 @@ export default function Lernen() {
     })
   }
 
-  // „Mehr Karten heute": Tageslimit on demand erhöhen (kein hartes Limit)
+  const rueckgaengig = () => {
+    if (!historie.length) return
+    const letzte = historie[historie.length - 1]
+    bewertungZuruecknehmen(letzte.karte, letzte.stats)
+    setHistorie((h) => h.slice(0, -1))
+    setQueue(letzte.queue)
+    setBewertet(letzte.bewertet)
+    setZeigeAntwort(true)
+    setZeigePinyin(false)
+    setWischX(0)
+    gemeldet.current = false
+  }
+
   const nachschub = (n = 5) => {
     mehrKartenHeute(n)
     const imQueue = new Set(queue)
     const pool = kartenFuerPool(state, themaId)
-    const extra = neueKartenVon(pool)
-      .filter((k) => !imQueue.has(k.id))
-      .slice(0, n)
-      .map((k) => k.id)
+    const extra = neueKartenVon(pool).filter((k) => !imQueue.has(k.id)).slice(0, n).map((k) => k.id)
     setQueue((q) => [...q, ...extra])
     return extra.length
+  }
+
+  // Tastatursteuerung: Leertaste = aufdecken; danach 1..n = bewerten;
+  // P = Pinyin zeigen; Z/U = Rückgängig.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return
+      if (!karte) return
+      if (e.code === 'Space') {
+        e.preventDefault()
+        if (!zeigeAntwort) setZeigeAntwort(true)
+        return
+      }
+      if ((e.key === 'p' || e.key === 'P') && !zeigeAntwort) { setZeigePinyin(true); return }
+      if ((e.key === 'z' || e.key === 'u') && historie.length) { rueckgaengig(); return }
+      if (zeigeAntwort && /^[1-9]$/.test(e.key)) {
+        const knoepfe = MODUS_KNOEPFE[modusBewertung] || MODUS_KNOEPFE.drei
+        const idx = +e.key - 1
+        if (idx < knoepfe.length) bewerten(knoepfe[idx])
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
+  // Wisch-Gesten (Handy): nach dem Aufdecken links = nochmal, rechts = gut.
+  const onTouchStart = (e) => { if (!zeigeAntwort) return; touch.current = { x: e.touches[0].clientX, aktiv: true } }
+  const onTouchMove = (e) => { if (touch.current.aktiv) setWischX(e.touches[0].clientX - touch.current.x) }
+  const onTouchEnd = () => {
+    if (!touch.current.aktiv) return
+    touch.current.aktiv = false
+    if (Math.abs(wischX) > 90) bewerten(wischX < 0 ? 'nochmal' : 'gut')
+    else setWischX(0)
   }
 
   // ---------- Session beendet ----------
@@ -103,6 +183,9 @@ export default function Lernen() {
                 : 'Alle Karten dieses Stapels sind aktuell gelernt.'}
           </p>
           <div className="flex flex-col gap-3 max-w-xs mx-auto">
+            {bewertet > 0 && historie.length > 0 && (
+              <Knopf variante="sekundaer" onClick={rueckgaengig}>↩︎ Letzte Bewertung rückgängig</Knopf>
+            )}
             {istWdh ? (
               gelernteImPool > 0 && (
                 <Knopf onClick={() => geheZu('lernen', { thema: themaId || undefined, modus: 'wiederholen' })}>
@@ -137,51 +220,67 @@ export default function Lernen() {
         titel={titel}
         onZurueck={() => geheZu('home')}
         rechts={
-          <button
-            onClick={() => setOptionenOffen((o) => !o)}
-            className="w-11 h-11 rounded-2xl bg-panel2 border border-linie hover:border-akzent/60 transition"
-            aria-label="Karten-Optionen"
-          >
-            ⋯
-          </button>
+          <div className="flex items-center gap-2">
+            {historie.length > 0 && (
+              <button
+                onClick={rueckgaengig}
+                className="w-11 h-11 rounded-2xl bg-panel2 border border-linie hover:border-akzent/60 transition"
+                aria-label="Rückgängig"
+                title="Letzte Bewertung rückgängig (Z)"
+              >
+                ↩︎
+              </button>
+            )}
+            <button
+              onClick={() => setOptionenOffen((o) => !o)}
+              className="w-11 h-11 rounded-2xl bg-panel2 border border-linie hover:border-akzent/60 transition"
+              aria-label="Karten-Optionen"
+            >
+              ⋯
+            </button>
+          </div>
         }
       />
 
-      {/* Karten-Optionen: Mischen, Lernrichtung, Stapel neu mischen */}
       {optionenOffen && (
         <Panel className="mb-4 space-y-3">
           <div className="flex items-center justify-between">
+            <span className="text-sm">Bewertungsmodus</span>
+            <div className="flex gap-1">
+              {[['drei', '3'], ['anki', '4'], ['wisch', '↔']].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => einstellungenSetzen({ bewertungsModus: id })}
+                  className={`min-w-[40px] rounded-xl border px-2 py-2 text-sm transition ${
+                    modusBewertung === id ? 'bg-akzent/20 border-akzent text-tinte' : 'bg-panel border-linie text-matt'
+                  }`}
+                  title={id === 'drei' ? '3 Knöpfe' : id === 'anki' ? '4 Knöpfe (Anki)' : 'Wischen'}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-sm">Lernrichtung</span>
-            <Knopf
-              variante="sekundaer"
-              className="!py-2 text-sm"
-              onClick={() => einstellungenSetzen({ richtung: richtungZhDe ? 'de-zh' : 'zh-de' })}
-            >
+            <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => einstellungenSetzen({ richtung: richtungZhDe ? 'de-zh' : 'zh-de' })}>
               {richtungZhDe ? '汉 → Deutsch' : 'Deutsch → 汉'}
             </Knopf>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm">Mischen</span>
-            <Knopf
-              variante="sekundaer"
-              className="!py-2 text-sm"
-              onClick={() => einstellungenSetzen({ mischen: !state.einstellungen.mischen })}
-            >
+            <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => einstellungenSetzen({ mischen: !state.einstellungen.mischen })}>
               {state.einstellungen.mischen ? 'An' : 'Aus'}
             </Knopf>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm">Stapel neu mischen</span>
-            <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => setQueue((q) => mischen(q))}>
-              🔀 Jetzt
-            </Knopf>
+            <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => setQueue((q) => mischen(q))}>🔀 Jetzt</Knopf>
           </div>
           {modus !== 'wiederholen' && (
             <div className="flex items-center justify-between">
               <span className="text-sm">Mehr Karten heute</span>
-              <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => nachschub(5)}>
-                +5 neue
-              </Knopf>
+              <Knopf variante="sekundaer" className="!py-2 text-sm" onClick={() => nachschub(5)}>+5 neue</Knopf>
             </div>
           )}
         </Panel>
@@ -192,75 +291,104 @@ export default function Lernen() {
         Noch {queue.length} Karten {karte.wiederholungen === 0 && <span className="text-akzent font-semibold">· NEU</span>}
       </div>
 
-      {/* Die Karte */}
-      <Panel className="min-h-[340px] flex flex-col items-center justify-center text-center relative">
-        <div className="absolute top-4 left-4 text-xs text-matt">
-          {kartenThema?.emoji} HSK {karte.hsk_level}
-        </div>
-
-        {richtungZhDe ? (
-          <div className="zeichen text-6xl sm:text-7xl font-bold mb-4 select-none">{karte.hanzi}</div>
-        ) : (
-          <div className="text-3xl font-bold mb-4">{karte.bedeutung}</div>
+      {/* Die Karte (mit Wisch-Gesten nach dem Aufdecken) */}
+      <div className="relative">
+        {/* Wisch-Hinweise links/rechts */}
+        {zeigeAntwort && wischX < -30 && (
+          <div className="absolute inset-y-0 left-3 z-20 flex items-center text-err font-bold text-lg pointer-events-none">↩︎ Nochmal</div>
         )}
-
-        {/* Pinyin nur auf Klick */}
-        {richtungZhDe && !zeigeAntwort && (
-          zeigePinyin ? (
-            <div className="text-xl text-akzent mb-4">{karte.pinyin}</div>
-          ) : (
-            <button onClick={() => setZeigePinyin(true)} className="text-sm text-matt underline underline-offset-4 mb-4 min-h-[44px]">
-              Pinyin zeigen
-            </button>
-          )
+        {zeigeAntwort && wischX > 30 && (
+          <div className="absolute inset-y-0 right-3 z-20 flex items-center text-ok font-bold text-lg pointer-events-none">Gewusst ✓</div>
         )}
-
-        {zeigeAntwort && (
-          <div className="space-y-4 w-full">
-            {richtungZhDe ? (
-              <>
-                <div className="text-xl text-akzent">{karte.pinyin}</div>
-                <div className="text-lg font-semibold">{karte.bedeutung}</div>
-              </>
-            ) : (
-              <>
-                <div className="zeichen text-5xl font-bold">{karte.hanzi}</div>
-                <div className="text-xl text-akzent">{karte.pinyin}</div>
-              </>
-            )}
-            <div className="border-t border-linie pt-4 text-left bg-panel rounded-2xl p-4">
-              <div className="zeichen text-lg leading-relaxed">{karte.beispielsatz.join('')}</div>
-              <div className="text-sm text-akzent/90 mt-1">{karte.beispiel_pinyin}</div>
-              <div className="text-sm text-matt mt-1">{karte.beispiel_uebersetzung}</div>
-              {/* ERWEITERUNG: Sprachausgabe – hier einen 🔊-Button einhängen,
-                  der hanzi/beispielsatz über die Web Speech API (speechSynthesis,
-                  lang 'zh-CN') oder eine TTS-API vorliest. */}
-            </div>
+        <Panel
+          className="min-h-[340px] flex flex-col items-center justify-center text-center relative touch-pan-y"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{
+            transform: wischX ? `translateX(${wischX}px) rotate(${wischX / 30}deg)` : undefined,
+            transition: touch.current.aktiv ? 'none' : 'transform 0.2s ease',
+          }}
+        >
+          <div className="absolute top-4 left-4 text-xs text-matt">
+            {kartenThema?.emoji} HSK {karte.hsk_level}
           </div>
-        )}
-      </Panel>
+
+          {richtungZhDe ? (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="zeichen text-6xl sm:text-7xl font-bold select-none">{karte.hanzi}</div>
+              <AudioKnopf text={karte.hanzi} tempo={tempo} />
+            </div>
+          ) : (
+            <div className="text-3xl font-bold mb-4">{karte.bedeutung}</div>
+          )}
+
+          {/* Pinyin nur auf Klick (vor dem Aufdecken) */}
+          {richtungZhDe && !zeigeAntwort && (
+            zeigePinyin ? (
+              <div className="text-xl mb-4"><Pinyin text={karte.pinyin} /></div>
+            ) : (
+              <button onClick={() => setZeigePinyin(true)} className="text-sm text-matt underline underline-offset-4 mb-4 min-h-[44px]">
+                Pinyin zeigen
+              </button>
+            )
+          )}
+
+          {zeigeAntwort && (
+            <div className="space-y-4 w-full">
+              {richtungZhDe ? (
+                <>
+                  <div className="text-xl"><Pinyin text={karte.pinyin} /></div>
+                  <div className="text-lg font-semibold">{karte.bedeutung}</div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="zeichen text-5xl font-bold">{karte.hanzi}</div>
+                    <AudioKnopf text={karte.hanzi} tempo={tempo} />
+                  </div>
+                  <div className="text-xl"><Pinyin text={karte.pinyin} /></div>
+                </>
+              )}
+              <div className="border-t border-linie pt-4 text-left bg-panel rounded-2xl p-4">
+                <div className="flex items-start gap-2">
+                  <TippText text={karte.beispielsatz.join('')} className="text-lg leading-relaxed flex-1" />
+                  <AudioKnopf text={karte.beispielsatz.join('')} tempo={tempo} klein />
+                </div>
+                <div className="text-sm mt-1"><Pinyin text={karte.beispiel_pinyin} /></div>
+                <div className="text-sm text-matt mt-1">{karte.beispiel_uebersetzung}</div>
+              </div>
+            </div>
+          )}
+        </Panel>
+      </div>
 
       {/* Aktionen */}
       <div className="mt-4">
         {!zeigeAntwort ? (
-          <Knopf className="w-full text-lg" onClick={() => setZeigeAntwort(true)}>
-            Antwort zeigen
-          </Knopf>
+          <Knopf className="w-full text-lg" onClick={() => setZeigeAntwort(true)}>Antwort zeigen</Knopf>
+        ) : modusBewertung === 'wisch' ? (
+          <div>
+            <div className="text-xs text-matt text-center mb-2">← wischen = Nochmal · wischen → = Gewusst</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => bewerten('nochmal')} className="rounded-2xl border border-err/50 text-err bg-panel py-4 font-semibold transition active:scale-95 hover:bg-panel2">
+                ✗ Nicht gewusst
+              </button>
+              <button onClick={() => bewerten('gut')} className="rounded-2xl border border-ok/50 text-ok bg-panel py-4 font-semibold transition active:scale-95 hover:bg-panel2">
+                ✓ Gewusst
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              ['nochmal', 'Nochmal', 'border-err/50 text-err', vorschau.nochmal],
-              ['schwer', 'Schwer', 'border-gold/50 text-gold', vorschau.schwer],
-              ['gut', 'Gut', 'border-ok/50 text-ok', vorschau.gut],
-              ['leicht', 'Leicht', 'border-akzent/50 text-akzent', vorschau.leicht],
-            ].map(([w, label, farbe, zeit]) => (
+          <div className={`grid gap-2 ${modusBewertung === 'anki' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {(MODUS_KNOEPFE[modusBewertung] || MODUS_KNOEPFE.drei).map((w) => (
               <button
                 key={w}
                 onClick={() => bewerten(w)}
-                className={`rounded-2xl border bg-panel py-3 px-1 min-h-[64px] font-semibold text-sm transition active:scale-95 hover:bg-panel2 ${farbe}`}
+                className={`rounded-2xl border bg-panel py-3 px-1 min-h-[64px] font-semibold text-sm transition active:scale-95 hover:bg-panel2 ${KNOPF_FARBE[w]}`}
               >
-                {label}
-                <div className="text-[10px] opacity-70 font-normal mt-0.5">{zeit}</div>
+                {KNOPF_LABEL[w]}
+                <div className="text-[10px] opacity-70 font-normal mt-0.5">{vorschau[w]}</div>
               </button>
             ))}
           </div>
